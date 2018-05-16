@@ -1,9 +1,8 @@
 {
   "author": {
-    "name": "Patrik Simek",
-    "url": "https://patriksimek.cz"
+    "name": "Jose Luis Castro"
   },
-  "name": "mssql",
+  "name": "mssql-plus",
   "description": "Microsoft SQL Server client for Node.js.",
   "keywords": [
     "database",
@@ -21,11 +20,11 @@
     "azure",
     "node-mssql"
   ],
-  "version": "4.1.0",
+  "version": "1.0.0",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/patriksimek/node-mssql"
+    "url": "https://github.com/joseluiscastro23/node-mssql"
   },
   "license": "MIT",
   "dependencies": {
