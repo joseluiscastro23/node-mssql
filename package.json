@@ -46,6 +46,6 @@
     "test-cli": "node_modules/.bin/mocha test/common/cli.js"
   },
   "bin": {
-    "mssql": "./bin/mssql"
+    "mssql": "./bin/mssql-plus"
   }
 }
