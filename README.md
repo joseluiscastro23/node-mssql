@@ -14,7 +14,7 @@ Supported TDS drivers:
 
 Use `@next` tag to install the most recent version with latest fixes and features.
 
-    npm install mssql@next
+    npm install mssql-plus@next
 
 ## Quick Example
 
