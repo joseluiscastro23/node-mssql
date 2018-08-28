@@ -19,7 +19,7 @@ Use `@next` tag to install the most recent version with latest fixes and feature
 ## Quick Example
 
 ```javascript
-const sql = require('mssql')
+const sql = require('mssql-plus')
 
 async () => {
     try {
@@ -127,7 +127,7 @@ const config = {
 ### Async/Await
 
 ```javascript
-const sql = require('mssql')
+const sql = require('mssql-plus')
 
 (async function () {
     try {
@@ -159,7 +159,7 @@ sql.on('error', err => {
 ### Promises
 
 ```javascript
-const sql = require('mssql')
+const sql = require('mssql-plus')
 
 sql.connect(config).then(pool => {
     // Query
@@ -192,7 +192,7 @@ Native Promise is used by default. You can easily change this with `sql.Promise 
 ### ES6 Tagged template literals
 
 ```javascript
-const sql = require('mssql')
+const sql = require('mssql-plus')
 
 sql.connect(config).then(() => {
     return sql.query`select * from mytable where id = ${value}`
@@ -212,7 +212,7 @@ All values are automatically sanitized against sql injection.
 ### Callbacks
 
 ```javascript
-const sql = require('mssql')
+const sql = require('mssql-plus')
 
 sql.connect(config, err => {
     // ... error checks
@@ -247,7 +247,7 @@ sql.on('error', err => {
 If you plan to work with large amount of rows, you should always use streaming. Once you enable this, you must listen for events to receive data.
 
 ```javascript
-const sql = require('mssql')
+const sql = require('mssql-plus')
 
 sql.connect(config, err => {
     // ... error checks
@@ -281,7 +281,7 @@ sql.on('error', err => {
 ## Connection Pools
 
 ```javascript
-const sql = require('mssql')
+const sql = require('mssql-plus')
 
 const pool1 = new sql.ConnectionPool(config, err => {
     // ... error checks

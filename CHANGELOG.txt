@@ -1,3 +1,12 @@
+joseluiscastro23/node-mssql
+v1.1.0 (2018-08-28)
+-------------------
+[new] Array support for Bul (PR #649 @tediousjs)
+[new] Enable use of docker in travis and run tedious + stress tests in CI  (PR #614 @tediousjs)
+[change] Add beforeConnect handler (PR #600 @tediousjs)
+[fix] Fix issue #438 (PR #455 @tediousjs)
+
+tediousjs/node-mssql
 v4.2.1 (2018-08-05)
 -------------------
 [fix] Fix connections in the pool depleting due to unfulfilled Promises and timeouts
