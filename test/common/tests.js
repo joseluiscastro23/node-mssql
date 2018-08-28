@@ -3,6 +3,8 @@
 const assert = require('assert')
 const stream = require('stream')
 
+function cloneDeep (val) { return JSON.parse(JSON.stringify(val)) }
+
 process.on('unhandledRejection', (reason, p) => {
   console.log('Unhandled Rejection at: Promise', p, 'reason:', reason)
   // application specific logging, throwing an error, or other logic here
@@ -90,6 +92,15 @@ module.exports = (sql, driver) => {
 
   class TestTransaction extends sql.Transaction {
 
+  }
+
+  class MSSQLTestType extends sql.Table {
+    constructor () {
+      super('dbo.MSSQLTestType')
+
+      this.columns.add('a', sql.VarChar(50))
+      this.columns.add('b', sql.Int)
+    }
   }
 
   return {
@@ -184,7 +195,7 @@ module.exports = (sql, driver) => {
     },
 
     'binary data' (done) {
-      const sample = new Buffer([0x00, 0x01, 0xe2, 0x40])
+      const sample = Buffer.from([0x00, 0x01, 0xe2, 0x40])
 
       const req = new TestRequest()
       req.input('in', sql.Binary, sample)
@@ -229,20 +240,6 @@ module.exports = (sql, driver) => {
 
         done()
       }).catch(done)
-    },
-
-    'domain' (done) {
-      let d = require('domain').create()
-      d.run(function () {
-        const req = new TestRequest()
-        let domain = process.domain
-
-        req.query('', function (err, recordset) {
-          assert.strictEqual(domain, process.domain)
-
-          done(err)
-        })
-      })
     },
 
     'empty query' (done) {
@@ -290,7 +287,7 @@ module.exports = (sql, driver) => {
     },
 
     'query with input parameters' (mode, done) {
-      const buff = new Buffer([0x00, 0x01, 0xe2, 0x40])
+      const buff = Buffer.from([0x00, 0x01, 0xe2, 0x40])
 
       const req = new sql.Request()
       req.input('id', 12)
@@ -390,6 +387,32 @@ module.exports = (sql, driver) => {
       req.pipe(stream)
     },
 
+    'query with big strings' (mode, done) {
+      const req = new sql.Request()
+      var bigStr = 'S'.repeat(100000)
+      var ncharBigStr = 'S'.repeat(3500)
+      var charBigStr = ncharBigStr.repeat(2)
+
+      req.input('vch', sql.NVarChar(sql.MAX), bigStr)
+      req.input('nvch', sql.VarChar(sql.MAX), bigStr)
+      req.input('xml', sql.XML, bigStr)
+      req.input('vch2', sql.VarChar, bigStr)
+      req.input('nch', sql.NChar(3500), ncharBigStr)
+      req.input('ch', sql.Char(7000), charBigStr)
+
+      req[mode]('select @vch as vch, @nvch as nvch, @vch2 as vch2, @nch as nch, @ch as ch, @xml as xml').then(result => {
+        assert.equal(result.recordset.length, 1)
+        assert.equal(result.recordset[0].vch, bigStr)
+        assert.equal(result.recordset[0].nvch, bigStr)
+        assert.equal(result.recordset[0].vch2, bigStr)
+        assert.equal(result.recordset[0].xml, bigStr)
+        assert.equal(result.recordset[0].nch, ncharBigStr)
+        assert.equal(result.recordset[0].ch, charBigStr)
+
+        done()
+      }).catch(done)
+    },
+
     'batch' (done, stream) {
       const req = new TestRequest()
       req.batch('select 1 as num;select \'asdf\' as text').then(result => {
@@ -410,7 +433,6 @@ module.exports = (sql, driver) => {
           assert.equal(result.recordset[0].num, 1)
 
           req = new TestRequest()
-          req.multiple = true
           req.batch('exec #temporary;exec #temporary;exec #temporary').then(result => {
             assert.equal(result.recordsets[0][0].num, 1)
             assert.equal(result.recordsets[1][0].num, 1)
@@ -648,15 +670,16 @@ module.exports = (sql, driver) => {
     },
 
     'request timeout' (done, driver, message) {
-      const config = JSON.parse(require('fs').readFileSync(`${__dirname}/../.mssql.json`))
+      const config = cloneDeep(require('../mssql-config'))
       config.driver = driver
-      config.requestTimeout = 1000  // note: msnodesqlv8 doesn't support timeouts less than 1 second
+      config.requestTimeout = 1000 // note: msnodesqlv8 doesn't support timeouts less than 1 second
 
       new sql.ConnectionPool(config).connect().then(conn => {
         const req = new TestRequest(conn)
         req.query('waitfor delay \'00:00:05\';select 1').catch(err => {
           assert.ok((message ? (message.exec(err.message) != null) : (err instanceof sql.RequestError)))
 
+          conn.close()
           done()
         })
       })
@@ -678,6 +701,15 @@ module.exports = (sql, driver) => {
         assert.deepEqual(result.recordsets[0][0], [{'a': {'b': {'c': 1, 'd': 2}, 'x': 3, 'y': 4}}])
         assert.deepEqual(result.recordsets[1][0], [{'a': {'b': {'c': 5, 'd': 6}, 'x': 7, 'y': 8}}])
         assert.strictEqual(result.recordsets[2][0].length, 1000)
+
+        done()
+      }).catch(done)
+    },
+
+    'empty json' (done) {
+      const req = new TestRequest()
+      req.query('declare @tbl table (id int); select * from @tbl for json path').then(result => {
+        assert.equal(result.recordsets[0][0], null)
 
         done()
       }).catch(done)
@@ -760,19 +792,20 @@ module.exports = (sql, driver) => {
     },
 
     'login failed' (done, message) {
-      const config = JSON.parse(require('fs').readFileSync(`${__dirname}/../.mssql.json`))
+      const config = cloneDeep(require('../mssql-config'))
       config.user = '__notexistinguser__'
 
       // eslint-disable-next-line no-new
-      new sql.ConnectionPool(config, (err) => {
+      const conn = new sql.ConnectionPool(config, (err) => {
         assert.equal((message ? (message.exec(err.message) != null) : (err instanceof sql.ConnectionPoolError)), true)
+        conn.close()
         done()
       })
     },
 
     'timeout' (done, message) {
       // eslint-disable-next-line no-new
-      new sql.ConnectionPool({
+      const conn = new sql.ConnectionPool({
         user: '...',
         password: '...',
         server: '10.0.0.1',
@@ -780,18 +813,20 @@ module.exports = (sql, driver) => {
         pool: {idleTimeoutMillis: 500}
       }, (err) => {
         assert.equal((message ? (message.exec(err.message) != null) : (err instanceof sql.ConnectionPoolError)), true)
+        conn.close()
         done()
       })
     },
 
     'network error' (done, message) {
       // eslint-disable-next-line no-new
-      new sql.ConnectionPool({
+      const conn = new sql.ConnectionPool({
         user: '...',
         password: '...',
         server: '...'
       }, (err) => {
         assert.equal((message ? (message.exec(err.message) != null) : (err instanceof sql.ConnectionPoolError)), true)
+        conn.close()
         done()
       })
     },
@@ -950,7 +985,7 @@ module.exports = (sql, driver) => {
       }
 
       __range__(1, peak, true).map((i) => {
-        const c = new sql.ConnectionPool(JSON.parse(require('fs').readFileSync(`${__dirname}/../.mssql.json`)))
+        const c = new sql.ConnectionPool(require('../mssql-config'))
         c.connect(connected)
         conns.push(c)
       })
@@ -959,7 +994,7 @@ module.exports = (sql, driver) => {
     'concurrent requests' (done, driver) {
       console.log('')
 
-      let config = JSON.parse(require('fs').readFileSync(`${__dirname}/../.mssql.json`))
+      let config = cloneDeep(require('../mssql-config'))
       config.driver = driver
       config.pool = {min: 0, max: 50}
 
@@ -1004,7 +1039,7 @@ module.exports = (sql, driver) => {
     },
 
     'streaming off' (done, driver) {
-      let config = JSON.parse(require('fs').readFileSync(`${__dirname}/../.mssql.json`))
+      let config = cloneDeep(require('../mssql-config'))
       config.driver = driver
       config.requestTimeout = 60000
 
@@ -1023,7 +1058,7 @@ module.exports = (sql, driver) => {
     },
 
     'streaming on' (done, driver) {
-      let config = JSON.parse(require('fs').readFileSync(`${__dirname}/../.mssql.json`))
+      let config = cloneDeep(require('../mssql-config'))
       config.driver = driver
       config.requestTimeout = 60000
 
@@ -1045,6 +1080,38 @@ module.exports = (sql, driver) => {
           done()
         })
       })
+    },
+
+    'new Table' (done) {
+      let tvp = new MSSQLTestType()
+      tvp.rows.add('asdf', 15)
+
+      const req = new TestRequest()
+      req.input('tvp', tvp)
+      req.execute('__test7').then(result => {
+        assert.equal(result.recordsets[0].length, 1)
+        assert.equal(result.recordsets[0][0].a, 'asdf')
+        assert.equal(result.recordsets[0][0].b, 15)
+
+        done()
+      }).catch(done)
+    },
+
+    'Recordset.toTable()' (done) {
+      const req = new TestRequest()
+      req.query('select \'asdf\' as a, 15 as b').then(result => {
+        let tvp = result.recordset.toTable('dbo.MSSQLTestType')
+
+        const req2 = new TestRequest()
+        req2.input('tvp', tvp)
+        req2.execute('__test7').then(result => {
+          assert.equal(result.recordsets[0].length, 1)
+          assert.equal(result.recordsets[0][0].a, 'asdf')
+          assert.equal(result.recordsets[0][0].b, 15)
+
+          done()
+        }).catch(done)
+      }).catch(done)
     }
   }
 }

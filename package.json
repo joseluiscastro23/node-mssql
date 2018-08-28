@@ -20,7 +20,7 @@
     "azure",
     "node-mssql"
   ],
-  "version": "1.0.4",
+  "version": "1.1.0",
   "main": "index.js",
   "repository": {
     "type": "git",
@@ -28,22 +28,29 @@
   },
   "license": "MIT",
   "dependencies": {
-    "debug": "^2.6.3",
-    "generic-pool": "^3.1.7",
-    "tedious": "^2.0.0"
+    "debug": "^3.1.0",
+    "generic-pool": "^3.4.2",
+    "tedious": "^2.6.4"
   },
   "devDependencies": {
-    "mocha": "^2.1.0",
-    "standard": "^9.0.2"
-  },
+	"mocha": "^5.2.0",
+    "standard": "^11.0.1",	"request-promise-native": "^1.0.5",
+    "standard": "^9.0.2",
+    "toxiproxy-node-client": "^2.0.6"  },
   "engines": {
     "node": ">=4"
   },
   "scripts": {
-    "test": "standard && node_modules/.bin/mocha test/common/unit.js",
+    "test": "npm run lint && npm run test-unit",
+    "lint": "standard",
+    "test-unit": "node_modules/.bin/mocha test/common/unit.js",
     "test-tedious": "node_modules/.bin/mocha test/tedious",
     "test-msnodesqlv8": "node_modules/.bin/mocha test/msnodesqlv8",
-    "test-cli": "node_modules/.bin/mocha test/common/cli.js"
+    "test-cli": "node_modules/.bin/mocha test/common/cli.js",
+    "mssql-server:up": "docker-compose up --no-start &&  docker-compose start && ./init-docker-mssql-server.sh",
+    "mssql-server:down": "docker-compose down",
+    "stress:tedious:debug": "DEBUG=* npm run stress:tedious",
+    "stress:tedious": "TEST_DRIVER=tedious node test/stress/pool-create-hanging.js"
   },
   "bin": {
     "mssql": "./bin/mssql-plus"
